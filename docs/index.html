@@ -1,0 +1,174 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>花蓮縣觀光遊憩區遊客人數分析</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script src="./data.js"></script>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--ink:#203047;--muted:#718096;--accent:#167d8d;--line:#e4eaf0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif}
+header{background:linear-gradient(120deg,#155e75,#2193a5);color:white;padding:32px max(20px,calc((100% - 1200px)/2))}
+header h1{margin:0 0 10px;font-size:clamp(24px,4vw,36px)}
+header p{margin:0;line-height:1.8;opacity:.92}
+main{max-width:1200px;margin:24px auto;padding:0 18px}
+.panel,.kpi,.chart-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 4px 18px #18324a08}
+.panel{margin-bottom:20px}
+.filters{display:grid;grid-template-columns:1fr 2fr auto;gap:20px;align-items:end}
+label{display:block;font-weight:700;margin-bottom:10px}
+select,input{max-width:100%;font:inherit}
+select{width:100%;padding:10px;border:1px solid #ccd7e1;border-radius:8px;background:white}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.hint,.muted{color:var(--muted);font-size:13px;line-height:1.7}
+button{border:0;border-radius:8px;padding:10px 14px;background:var(--accent);color:white;font:inherit;cursor:pointer}
+button:hover{filter:brightness(.92)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
+.kpi .label{font-size:14px;color:var(--muted)}
+.kpi .value{font-size:clamp(20px,2.5vw,30px);font-weight:800;margin:10px 0;overflow-wrap:anywhere}
+.kpi .note{font-size:12px;color:var(--muted)}
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.chart-card{min-width:0}
+.chart-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h2{font-size:18px;margin:0 0 8px}
+.chart{height:340px;width:100%}
+.chart-actions{display:flex;gap:6px}
+.chart-actions button{padding:6px 10px;font-size:12px;background:#e8f2f4;color:#155e75}
+.chart-actions button.active{background:var(--accent);color:white}
+footer{max-width:1200px;margin:24px auto;padding:20px;color:var(--muted);font-size:13px;line-height:1.9}
+footer a{color:#167d8d}
+.warning{padding:14px;border-radius:10px;background:#fff3cd;color:#725b16;margin-bottom:16px}
+@media(max-width:760px){main{padding:0 12px;margin-top:14px}.filters{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi,.panel,.chart-card{padding:15px}.charts{grid-template-columns:1fr}.chart{height:300px}header{padding:25px 18px}}
+</style>
+</head>
+<body>
+<header>
+<h1>花蓮縣觀光遊憩區遊客人數分析</h1>
+<p>從月份與景點兩個角度，探索花蓮觀光遊憩區的遊客人次分布、趨勢與差異。</p>
+</header>
+<main>
+<div id="loadError" class="warning" hidden>網頁圖表套件載入失敗，請確認網路連線後重新整理。</div>
+
+<section class="panel">
+<h2>資料篩選</h2>
+<div class="filters">
+<div>
+<label for="monthRange">月份範圍</label>
+<input id="monthRange" type="range" min="1" max="10" value="10">
+<div class="hint" id="monthLabel">1 月至 10 月</div>
+</div>
+<div>
+<label for="siteSelect">景點（可複選）</label>
+<select id="siteSelect" multiple size="4"></select>
+<div class="hint">Windows 可按住 Ctrl 選擇多個景點；手機可直接點選。</div>
+</div>
+<div><button id="reset">重設篩選</button></div>
+</div>
+</section>
+
+<section class="kpis">
+<div class="kpi"><div class="label">所選景點遊客人次合計</div><div class="value" id="kpiTotal">—</div><div class="note">依目前月份與景點篩選計算</div></div>
+<div class="kpi"><div class="label">平均每月遊客人次</div><div class="value" id="kpiAverage">—</div><div class="note">以有資料月份的合計計算</div></div>
+<div class="kpi"><div class="label">遊客最多月份</div><div class="value" id="kpiPeakMonth">—</div><div class="note" id="kpiPeakValue">依目前選擇計算</div></div>
+<div class="kpi"><div class="label">遊客最多景點</div><div class="value" id="kpiPeakSite">—</div><div class="note" id="kpiPeakSiteValue">依目前選擇計算</div></div>
+</section>
+
+<section class="charts">
+<div class="chart-card">
+<div class="chart-head"><h2>每月遊客人次趨勢</h2><div class="chart-actions"><button class="active" data-chart="trend" data-type="line">折線</button><button data-chart="trend" data-type="bar">長條</button></div></div>
+<div id="trend" class="chart"></div>
+</div>
+<div class="chart-card">
+<div class="chart-head"><h2>景點遊客人次排名</h2><div class="chart-actions"><button class="active" data-chart="rank" data-type="bar">長條</button><button data-chart="rank" data-type="line">折線</button></div></div>
+<div id="rank" class="chart"></div>
+</div>
+<div class="chart-card">
+<div class="chart-head"><h2>各景點月度比較</h2><div class="chart-actions"><button class="active" data-chart="compare" data-type="line">折線</button><button data-chart="compare" data-type="bar">長條</button></div></div>
+<div id="compare" class="chart"></div>
+</div>
+<div class="chart-card">
+<div class="chart-head"><h2>景點人次占比</h2><div class="chart-actions"><button class="active" data-chart="share" data-type="pie">圓餅</button><button data-chart="share" data-type="bar">長條</button></div></div>
+<div id="share" class="chart"></div>
+</div>
+</section>
+<section class="panel" style="margin-top:20px">
+<h2>資料解讀與限制</h2>
+<p id="insight">載入資料後顯示分析結果。</p>
+<p class="muted">本資料為遊客人次統計，不代表不重複的個人遊客數。原始資料中的「-」視為缺失值，不當作 0；沒有資料的月份不列入分析。景點人次合計可能受各景點統計口徑影響，不一定代表不重複遊客數。</p>
+</section>
+</main>
+<footer>
+<div><strong>資料來源：</strong>花蓮縣政府觀光處，花蓮縣各觀光遊憩區遊客人數統計（最新）</div>
+<div>分析期間：原始資料可用的 1–10 月；11–12 月原始資料為空白。</div>
+<div><a href="https://data.gov.tw/dataset/148111" target="_blank" rel="noopener">官方開放資料頁面</a> · <a href="https://github.com/lzi-lab/lz" target="_blank" rel="noopener">專案 GitHub 儲存庫</a></div>
+</footer>
+
+<script>
+(function(){
+const data=window.TOURISM_DATA;
+if(!data||!window.echarts){document.getElementById('loadError').hidden=false;return}
+const sites=data.sites, records=data.records;
+const charts={};
+const types={trend:'line',rank:'bar',compare:'line',share:'pie'};
+const colors=['#167d8d','#e69f00','#4e79a7','#59a14f','#af7aa1','#f28e2b','#76b7b2','#edc949','#b07aa1','#ff9da7','#9c755f','#bab0ab'];
+const fmt=n=>Number(n||0).toLocaleString('zh-TW');
+const $=id=>document.getElementById(id);
+const select=$('siteSelect');
+sites.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;o.selected=true;select.appendChild(o)});
+['trend','rank','compare','share'].forEach(id=>charts[id]=echarts.init($(id)));
+function selectedSites(){return Array.from(select.selectedOptions).map(o=>o.value)}
+function chosenRows(){const max=Number($('monthRange').value);return records.filter(r=>r['月份']<=max)}
+function totalFor(row,chosen){return chosen.reduce((sum,s)=>sum+(Number.isFinite(row[s])?row[s]:0),0)}
+function update(){
+const rows=chosenRows(), chosen=selectedSites();
+$('monthLabel').textContent='1 月至 '+$('monthRange').value+' 月';
+const monthly=rows.map(r=>({month:r['月份'],value:totalFor(r,chosen)}));
+const siteTotals=chosen.map(s=>({name:s,value:rows.reduce((sum,r)=>sum+(Number.isFinite(r[s])?r[s]:0),0),count:rows.filter(r=>Number.isFinite(r[s])).length}));
+const total=monthly.reduce((s,r)=>s+r.value,0);
+$('kpiTotal').textContent=fmt(total);
+$('kpiAverage').textContent=fmt(monthly.length?Math.round(total/monthly.length):0);
+const peakMonth=monthly.reduce((a,b)=>b.value>a.value?b:a,{month:null,value:-1});
+$('kpiPeakMonth').textContent=peakMonth.month?peakMonth.month+' 月':'—';
+$('kpiPeakValue').textContent=peakMonth.month?fmt(peakMonth.value)+' 人次':'沒有可用資料';
+const peakSite=siteTotals.reduce((a,b)=>b.value>a.value?b:a,{name:'',value:-1});
+$('kpiPeakSite').textContent=peakSite.name||'—';
+$('kpiPeakSiteValue').textContent=peakSite.name?fmt(peakSite.value)+' 人次':'請選擇景點';
+const axisStyle={axisLine:{lineStyle:{color:'#aebbc7'}},axisLabel:{color:'#617184'}};
+const common={animationDuration:500,tooltip:{trigger:'axis'},grid:{left:58,right:24,top:38,bottom:65,containLabel:false}};
+function setChart(id,option){charts[id].clear();charts[id].setOption(option,true)}
+setChart('trend',{...common,xAxis:{type:'category',data:monthly.map(r=>r.month+' 月'),...axisStyle},yAxis:{type:'value',name:'人次',nameTextStyle:{color:'#617184'},...axisStyle},series:[{type:types.trend,data:monthly.map(r=>r.value),smooth:types.trend==='line',itemStyle:{color:colors[0]},areaStyle:types.trend==='line'?{opacity:.12}:undefined,label:{show:types.trend==='bar',position:'top',formatter:p=>fmt(p.value)}}]});
+const ranked=siteTotals.slice().sort((a,b)=>a.value-b.value);
+setChart('rank',{...common,grid:{left:120,right:35,top:20,bottom:45,containLabel:false},tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},xAxis:{type:'value',name:'人次',...axisStyle},yAxis:{type:'category',data:ranked.map(r=>r.name),axisLabel:{color:'#617184',width:105,overflow:'truncate'},axisLine:{lineStyle:{color:'#aebbc7'}}},series:[{type:types.rank,data:ranked.map((r,i)=>({value:r.value,itemStyle:{color:colors[i%colors.length]}})),label:{show:true,position:'right',formatter:p=>fmt(p.value)}}]});
+const series=chosen.map((s,i)=>({name:s,type:types.compare,data:rows.map(r=>Number.isFinite(r[s])?r[s]:null),connectNulls:false,smooth:types.compare==='line',itemStyle:{color:colors[i%colors.length]},emphasis:{focus:'series'}}));
+setChart('compare',{...common,legend:{type:'scroll',bottom:0,textStyle:{color:'#617184'}},xAxis:{type:'category',data:rows.map(r=>r['月份']+' 月'),...axisStyle},yAxis:{type:'value',name:'人次',...axisStyle},series});
+const pieData=siteTotals.filter(r=>r.value>0).sort((a,b)=>b.value-a.value);
+if(types.share==='pie'){
+setChart('share',{tooltip:{trigger:'item',formatter:p=>p.name+'<br>'+fmt(p.value)+' 人次 ('+p.percent+'%)'},legend:{type:'scroll',orient:'vertical',left:0,top:10,bottom:10,textStyle:{color:'#617184'}},series:[{type:'pie',radius:['35%','68%'],center:['68%','52%'],data:pieData,itemStyle:{borderRadius:4,borderColor:'#fff',borderWidth:2},label:{formatter:p=>p.percent>=5?p.name+' '+p.percent+'%':p.percent+'%'}}]});
+}else{
+const sd=pieData.slice().reverse();
+setChart('share',{...common,grid:{left:120,right:35,top:20,bottom:45},xAxis:{type:'value',name:'人次',...axisStyle},yAxis:{type:'category',data:sd.map(r=>r.name),axisLabel:{color:'#617184',width:105,overflow:'truncate'},axisLine:{lineStyle:{color:'#aebbc7'}}},series:[{type:'bar',data:sd.map(r=>r.value),itemStyle:{color:colors[0]},label:{show:true,position:'right',formatter:p=>fmt(p.value)}}]});
+}
+if(!chosen.length){$('insight').textContent='目前未選擇任何景點，請在上方選取至少一個景點以查看分析。'}
+else if(!rows.length){$('insight').textContent='目前篩選範圍沒有可用月份。'}
+else{
+const top=siteTotals.slice().sort((a,b)=>b.value-a.value)[0];
+const low=monthly.slice().sort((a,b)=>a.value-b.value)[0];
+$('insight').textContent='目前選取 '+chosen.length+' 個景點、1 月至 '+$('monthRange').value+' 月，共計 '+fmt(total)+' 人次。所選景點中累計人次最高的是「'+top.name+'」（'+fmt(top.value)+' 人次）；所選月份中人次最低的是 '+low.month+' 月（'+fmt(low.value)+' 人次）。缺失值不以零計入景點資料，解讀時請留意各景點可能有不同的統計口徑。';
+}
+}
+$('monthRange').addEventListener('input',update);
+select.addEventListener('change',update);
+$('reset').addEventListener('click',()=>{$('monthRange').value=10;Array.from(select.options).forEach(o=>o.selected=true);update()});
+document.querySelectorAll('[data-chart]').forEach(btn=>btn.addEventListener('click',()=>{
+const id=btn.dataset.chart;types[id]=btn.dataset.type;
+document.querySelectorAll('[data-chart="'+id+'"]').forEach(b=>b.classList.toggle('active',b===btn));
+update();
+}));
+window.addEventListener('resize',()=>Object.values(charts).forEach(c=>c.resize()));
+update();
+})();
+</script>
+</body>
+</html>
